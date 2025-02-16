@@ -66,11 +66,13 @@ void GL::DrawBox(ent* entity, Vector3 screenCoords) {
 	int wndWidth = rect.right - rect.left;
 	int wndHeight = rect.bottom - rect.top;
 
+	glViewport(0, 0, wndWidth, wndHeight);
+
 	const int GAME_UNIT_MAGIC = 1800;
 
 	float distance = localPlayer->bodypos.getDistance(entity->bodypos);
 
-	float scale = (GAME_UNIT_MAGIC / distance) * (wndWidth / 1920.0f);
+	float scale = (GAME_UNIT_MAGIC / distance) * (wndWidth / 1920.0f) + (wndHeight / 1080.0f);
 	float width = scale * 3;
 	float height = scale * 6;
 	float x = screenCoords.x - width / 2;

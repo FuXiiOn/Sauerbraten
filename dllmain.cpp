@@ -303,7 +303,7 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 			ImGui::Checkbox("One hit", &Config::bOnehit);
 			ImGui::SameLine(); HelpMarker("WORKS ONLY ON SELF-HOSTED SERVERS");
 			ImGui::EndTabItem();
-		}a
+		}
 		ImGui::EndTabBar();
 		ImGui::End();
 	}

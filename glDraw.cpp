@@ -11,6 +11,7 @@ HWND hwnd = FindWindowA(NULL, "Cube 2: Sauerbraten");
 
 GLubyte red[3] = { 255,0,0 };
 GLubyte green[3] = { 0,255,0 };
+GLubyte white[3] = { 255,255,255 };
 
 HDC hdc = 0;
 unsigned int base = 0;
@@ -69,7 +70,7 @@ void GL::DrawBox(ent* entity, Vector3 screenCoords) {
 
 	float distance = localPlayer->bodypos.getDistance(entity->bodypos);
 
-	float scale = (GAME_UNIT_MAGIC / distance) * (wndWidth / wndHeight);
+	float scale = (GAME_UNIT_MAGIC / distance) * (wndWidth / 1920.0f);
 	float width = scale * 3;
 	float height = scale * 6;
 	float x = screenCoords.x - width / 2;
@@ -87,6 +88,10 @@ void GL::DrawBox(ent* entity, Vector3 screenCoords) {
 		float textX = GL::CenterText(x, width, strlen(entity->name) * 9);
 
 		GL::Print(textX, y - 8, color, "%s", entity->name);
+	}
+
+	if (Config::bDistance) {
+		GL::Print(x + width + 3, y + height, white, "%i", (int)distance);
 	}
 }
 

@@ -14,6 +14,7 @@ Internal cheat for Cube 2: Sauerbraten with Imgui menu and hooked SwapBuffers
    - Draw health bar
    - Draw Names
    - Draw Distance
+   - Draw Teammates
 3. Misc:
    - No recoil
    - Thirdperson (Online bypass)

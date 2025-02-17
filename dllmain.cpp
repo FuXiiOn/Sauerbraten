@@ -246,6 +246,7 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 
 			if (entity == localPlayer) continue;
 			if (entity->health < 0 || entity->health > 100) continue;
+			if (!Config::bTeammates && *entity->team == *localPlayer->team) continue;
 
 			Vector3 newHead = entity->bodypos;
 			newHead.z = entity->bodypos.z - EYE_HEIGHT + PLAYER_HEIGHT / 2;
@@ -287,6 +288,7 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 				ImGui::Checkbox("Draw HealthBar", &Config::bHealthBar);
 				ImGui::Checkbox("Draw Names", &Config::bNames);
 				ImGui::Checkbox("Draw Distance", &Config::bDistance);
+				ImGui::Checkbox("Draw teammates", &Config::bTeammates);
 			}
 			ImGui::EndTabItem();
 		}

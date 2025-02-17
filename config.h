@@ -15,6 +15,7 @@ namespace Config {
 	extern bool bHealthBar;
 	extern bool bNames;
 	extern bool bDistance;
+	extern bool bTeammates;
 	extern bool bGodmode;
 	extern bool bInfAmmo;
 	extern bool bOnehit;

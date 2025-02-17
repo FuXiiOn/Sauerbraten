@@ -14,6 +14,7 @@ bool Config::bEsp = false;
 bool Config::bHealthBar = false;
 bool Config::bNames = false;
 bool Config::bDistance = false;
+bool Config::bTeammates = false;
 bool Config::bGodmode = false;
 bool Config::bInfAmmo = false;
 bool Config::bOnehit = false;

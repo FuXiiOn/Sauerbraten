@@ -66,13 +66,11 @@ void GL::DrawBox(ent* entity, Vector3 screenCoords) {
 	int wndWidth = rect.right - rect.left;
 	int wndHeight = rect.bottom - rect.top;
 
-	glViewport(0, 0, wndWidth, wndHeight);
-
 	const int GAME_UNIT_MAGIC = 1800;
 
 	float distance = localPlayer->bodypos.getDistance(entity->bodypos);
 
-	float scale = (GAME_UNIT_MAGIC / distance) * (wndWidth / 1920.0f) + (wndHeight / 1080.0f);
+	float scale = (GAME_UNIT_MAGIC / distance) * (wndWidth / 1920.0f);
 	float width = scale * 3;
 	float height = scale * 6;
 	float x = screenCoords.x - width / 2;
@@ -147,14 +145,11 @@ bool GL::WorldToScreen(Vector3 pos, Vector3& screen, float matrix[16], int wndWi
 }
 
 void GL::SetupOrtho() {
-	glPushAttrib(GL_ALL_ATTRIB_BITS);
-	glPushMatrix();
 	RECT rect;
 	GetClientRect(hwnd, &rect);
 	int wndWidth = rect.right - rect.left;
 	int wndHeight = rect.bottom - rect.top;
-	GLint viewport[4];
-	glGetIntegerv(GL_VIEWPORT, viewport);
+
 	glViewport(0, 0, wndWidth, wndHeight);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -163,6 +158,7 @@ void GL::SetupOrtho() {
 	glLoadIdentity();
 	glDisable(GL_DEPTH_TEST);
 }
+
 
 void GL::RestoreGL() {
 	glPopMatrix();

@@ -352,7 +352,7 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 
 				if (ImGui::Button("Save Config", ImVec2(120, 20))) {
 					WritePrivateProfileStringA("Aimbot", "Aimbot", Config::bAimbot ? "1" : "0", selectedConfigPath.c_str());
-					WritePrivateProfileStringA("Aimbot", "Smoothing", Config::aimSmooth ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "Smoothing", std::to_string(Config::aimSmooth).c_str(), selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Aimbot", "SilentAim", Config::bSilent ? "1" : "0", selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Aimbot", "HitChance", std::to_string(Config::hitChance).c_str(), selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Aimbot", "SnapLines", Config::bSnapLine ? "1" : "0", selectedConfigPath.c_str());
@@ -375,13 +375,18 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 				}
 
 				if (ImGui::Button("Load Config", ImVec2(120, 20))) {
+					char smoothValue[MAX_PATH];
+					char fovValue[MAX_PATH];
+					GetPrivateProfileStringA("Aimbot", "Smoothing", "0", smoothValue, MAX_PATH, selectedConfigPath.c_str());
+					GetPrivateProfileStringA("Aimbot", "FOVRadius", "0", fovValue, MAX_PATH, selectedConfigPath.c_str());
+
 					Config::bAimbot = GetPrivateProfileIntA("Aimbot", "Aimbot", 0, selectedConfigPath.c_str());
-					Config::aimSmooth = static_cast<float>(GetPrivateProfileIntA("Aimbot", "Smoothing", 0, selectedConfigPath.c_str()));
+					Config::aimSmooth = std::stof(smoothValue);
 					Config::bSilent = GetPrivateProfileIntA("Aimbot", "SilentAim", 0, selectedConfigPath.c_str());
 					Config::hitChance = GetPrivateProfileIntA("Aimbot", "HitChance", 0, selectedConfigPath.c_str());
 					Config::bSnapLine = GetPrivateProfileIntA("Aimbot", "SnapLines", 0, selectedConfigPath.c_str());
 					Config::bFov = GetPrivateProfileIntA("Aimbot", "FOV", 0, selectedConfigPath.c_str());
-					Config::fovRadius = static_cast<float>(GetPrivateProfileIntA("Aimbot", "FOVRadius", 0, selectedConfigPath.c_str()));
+					Config::fovRadius = std::stof(fovValue);
 					Config::bVisCheck = GetPrivateProfileIntA("Aimbot", "VisibleCheck", 0, selectedConfigPath.c_str());
 					Config::bTriggerbot = GetPrivateProfileIntA("Aimbot", "TriggerBot", 0, selectedConfigPath.c_str());
 					Config::bEsp = GetPrivateProfileIntA("ESP", "ESP", 0, selectedConfigPath.c_str());
@@ -399,8 +404,8 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 				}
 
 				if (ImGui::Button("Delete Config", ImVec2(120, 20))) {
-					std::string configPath = std::string(localAppdata) + "\\" + selectedConfig;
-					if (DeleteFileA(configPath.c_str())) {
+					std::string configPathDelete = std::string(localAppdata) + "\\" + selectedConfig;
+					if (DeleteFileA(configPathDelete.c_str())) {
 						selectedConfig = "";
 						isConfigSelected = false;
 					}

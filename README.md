@@ -27,4 +27,5 @@ Internal cheat for Cube 2: Sauerbraten with Imgui menu and hooked SwapBuffers
    - Save Config
    - Load config
    - Create Config
+   - Rename Config
    - Delete Config

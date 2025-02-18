@@ -1,4 +1,5 @@
 #pragma once
+#include "glDraw.h"
 
 namespace Config {
 	extern bool showMenu;
@@ -8,8 +9,10 @@ namespace Config {
 	extern float fovRadius;
 	extern bool bTriggerbot;
 	extern bool bSilent;
+	extern bool bMagicBullet;
 	extern bool bSnapLine;
-	extern int hitChance;
+	extern int silentHitChance;
+	extern int magicHitChance;
 	extern float aimSmooth;
 	extern bool bEsp;
 	extern bool bHealthBar;
@@ -24,4 +27,6 @@ namespace Config {
 	extern bool bKnockback;
 	extern bool bRapidFire;
 	extern bool bThirdPerson;
+	extern GLfloat selectedTeamColor[3];
+	extern GLfloat selectedEnemyColor[3];
 }

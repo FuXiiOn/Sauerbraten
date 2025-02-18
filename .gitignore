@@ -5,6 +5,7 @@ Release
 /.vs
 Project1.sln
 /x64
+/Sauerbraten
 Sauerbraten.sln
 Sauerbraten.vcxproj
 Sauerbraten.vcxproj.filters

@@ -10,6 +10,7 @@
 #include "numbers"
 #include <intrin.h>
 #include "string"
+#include <sstream>
 
 typedef BOOL(__stdcall* hooked_wglSwapBuffers)(HDC hdc);
 hooked_wglSwapBuffers o_wglSwapBuffers;
@@ -20,18 +21,22 @@ SDL_SetCursor SDL_setCursor;
 typedef int(__fastcall* SDL_ShowCursor)(int mode);
 SDL_ShowCursor SDL_showCursor;
 
-typedef __int64(__fastcall* Shoot)(__int64 entity, Vector3* a2);
-Shoot shootHook;
+typedef __int64(__fastcall* MagicBullet)(__int64 entity, Vector3* a2);
+MagicBullet magicBulletHook;
 
 typedef __int64(__fastcall* TriggerBot)(__int64 a1, __int64 a2, __int64 a3, float* a4);
 TriggerBot triggerBotHook;
 
+typedef __int64(__fastcall* SilentAim)(Vector3 bulletOrigin, Vector3 bulletDest, __int64 entity);
+SilentAim silentHook;
+
 typedef float(__fastcall* VisCheck)(Vector3 a1, Vector3 a2, float a3, int a4, int a5, int a6);
 
 BYTE oSwapBuffersBytes[15] = { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x40 };
-BYTE oTraceLineBytes[18] = { 0x48, 0x89, 0x54, 0x24, 0x10, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, 0xC8 };
-BYTE oShootBytes[17] = { 0x40, 0x55, 0x53, 0x41, 0x56, 0x48, 0x8D, 0x6C, 0x24, 0xD0, 0x48, 0x81, 0xEC, 0x30, 0x01, 0x00, 0x00 };
+BYTE oOneHitBytes[15] = { 0x01, 0x91, 0x40, 0x03, 0x00, 0x00, 0x89, 0x81, 0x48, 0x03, 0x00, 0x00, 0x48, 0x3B, 0xCF };
+BYTE oMagicBulletBytes[17] = { 0x40, 0x55, 0x53, 0x41, 0x56, 0x48, 0x8D, 0x6C, 0x24, 0xD0, 0x48, 0x81, 0xEC, 0x30, 0x01, 0x00, 0x00 };
 BYTE oTriggerBotBytes[15] = { 0x48, 0x89, 0x4C, 0x24, 0x08, 0x53, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56 };
+BYTE oSilentBytes[18] = { 0x48, 0x89, 0x54, 0x24, 0x10, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, 0xC8 };
 
 HWND gameHWND = FindWindowA(NULL, "Cube 2: Sauerbraten");
 
@@ -81,96 +86,57 @@ bool isVisible(ent* localPlayer, ent* enemy) {
 	return false;
 }
 
-__int64 __fastcall silentFunct(__int64 entity, Vector3* enemy) {
+__int64 __fastcall silentAimHook(Vector3 bulletOrigin, Vector3 bulletDest, __int64 entity){
 	uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"sauerbraten.exe");
 	ent* localPlayer = *(ent**)(moduleBase + 0x2A5730);
 	uintptr_t entList = *(uintptr_t*)(moduleBase + 0x346C90);
 	int* currPlayers = (int*)(moduleBase + 0x346C9C);
-	float* viewMatrix = (float*)mem::FindDMAAddy(moduleBase + 0x34B770, { 0x8 });
-	float closestDistance = FLT_MAX;
-	ent* closestEntity = nullptr;
-	ent* bestSilent = nullptr;
-	float closestFov = FLT_MAX;
+
+	if ((uintptr_t)entity == (uintptr_t)localPlayer && Config::bSilent) {
+		if (closestSilent) {
+
+			int randValue = rand() % 100;
+
+			if (randValue < Config::silentHitChance) {
+				bulletDest.x = closestSilent->bodypos.x;
+				bulletDest.y = closestSilent->bodypos.y;
+				bulletDest.z = closestSilent->bodypos.z;
+
+				return silentHook(bulletOrigin, bulletDest, entity);
+			}
+		}
+	}
+
+	return silentHook(bulletOrigin, bulletDest, entity);
+}
+
+__int64 __fastcall magicBulletFunct(__int64 entity, Vector3* enemy) {
+	uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"sauerbraten.exe");
+	ent* localPlayer = *(ent**)(moduleBase + 0x2A5730);
 	RECT rect;
 	GetClientRect(gameHWND, &rect);
 	int wndWidth = rect.right - rect.left;
 	int wndHeight = rect.bottom - rect.top;
 	float fovDegrees = 1.5f * atan(Config::fovRadius / (wndWidth / 2)) * (180.0f / std::numbers::pi);
 
-	if (entity == (uintptr_t)localPlayer && Config::bSilent) {
-
-		for (unsigned int i = 0; i < *currPlayers; i++) {
-			ent* currEntity = *reinterpret_cast<ent**>(entList + i * 8);
-
-			if (!currEntity) continue;
-			if (currEntity == localPlayer) continue;
-			if (currEntity->health < 0 || currEntity->health > 100) continue;
-			if (*currEntity->team == *localPlayer->team) continue;
-			if (Config::bVisCheck && !isVisible(localPlayer, currEntity)) continue;
-
-			float abspos_x = localPlayer->bodypos.x - currEntity->bodypos.x;
-			float abspos_y = localPlayer->bodypos.y - currEntity->bodypos.y;
-			float abspos_z = localPlayer->bodypos.z - currEntity->bodypos.z;
-
-			float distance = sqrt(abspos_x * abspos_x + abspos_y * abspos_y + abspos_z * abspos_z);
-
-			float azimuth_xy = atan2f(abspos_y, abspos_x);
-			float newYaw = azimuth_xy * (180.0 / std::numbers::pi);
-
-			if (newYaw > 180.0f) newYaw -= 360.0f;
-			if (newYaw < -180.0f) newYaw += 360.0f;
-
-			float azimuth_z = atan2f(-abspos_z, hypot(abspos_x, abspos_y));
-			float newPitch = azimuth_z * (180.0 / std::numbers::pi);
-
-			float yawDiff = newYaw + 90.0f - localPlayer->yaw;
-			if (yawDiff > 180.0f) yawDiff -= 360.0f;
-			if (yawDiff < -180.0f) yawDiff += 360.0f;
-
-			float pitchDiff = newPitch - localPlayer->pitch;
-
-			float fov = sqrt(yawDiff * yawDiff + pitchDiff * pitchDiff);
-
-			if (Config::bFov) {
-				if (fov < closestFov && fov <= fovDegrees) {
-					closestEntity = currEntity;
-					bestSilent = currEntity;
-					closestFov = fov;
-				}
-			}
-			else {
-				if (distance < closestDistance) {
-					closestEntity = currEntity;
-					bestSilent = currEntity;
-					closestDistance = distance;
-				}
-			}
-		}
-
-		if (bestSilent) {
-			closestSilent = bestSilent;
-		}
-		else {
-			closestSilent = nullptr;
-		}
-
-		if (closestEntity) {
+	if (entity == (uintptr_t)localPlayer && Config::bMagicBullet) {
+		if (closestSilent) {
 
 			int randValue = rand() % 100;
 
-			if (randValue < Config::hitChance) {
-				*enemy = closestEntity->bodypos;
+			if (randValue < Config::magicHitChance) {
+				*enemy = closestSilent->bodypos;
 				localPlayer->bodypos = (*enemy - Vector3(0.1f, 0.1f, 0.1f));
 
-				return shootHook(entity, enemy);
+				return magicBulletHook(entity, enemy);
 			}
 			else {
-				return shootHook(entity, enemy);
+				return magicBulletHook(entity, enemy);
 			}
 		}
 	}
 
-	return shootHook(entity, enemy);
+	return magicBulletHook(entity, enemy);
 }
 
 __int64 __fastcall hkTriggerBot(__int64 a1, __int64 a2, __int64 a3, float* a4) {
@@ -198,11 +164,16 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 	uintptr_t entList = *(uintptr_t*)(moduleBase + 0x346C90);
 	float* viewMatrix = (float*)mem::FindDMAAddy(moduleBase + 0x34B770, { 0x8 });
 	int* gameState = (int*)(moduleBase + 0x345C50);
-
+	int* currPlayers = (int*)(moduleBase + 0x346C9C);
+	float closestDistance = FLT_MAX;
+	ent* closestEntity = nullptr;
+	ent* bestSilent = nullptr;
+	float closestFov = FLT_MAX;
 	RECT rect;
 	GetClientRect(gameHWND, &rect);
 	int wndWidth = rect.right - rect.left;
 	int wndHeight = rect.bottom - rect.top;
+	float fovDegrees = 1.5f * atan(Config::fovRadius / (wndWidth / 2)) * (180.0f / std::numbers::pi);
 
 	static HGLRC g_gameContext;
 	static HGLRC g_myContext;
@@ -228,7 +199,64 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 		GL::DrawFOV();
 	}
 
-	if (Config::bSilent && Config::bSnapLine && *gameState == 0) {
+	for (unsigned int i = 0; i < *currPlayers; i++) {
+		ent* currEntity = *reinterpret_cast<ent**>(entList + i * 8);
+
+		if (!currEntity) continue;
+		if (currEntity == localPlayer) continue;
+		if (currEntity->health < 0 || currEntity->health > 100) continue;
+		if (*currEntity->team == *localPlayer->team) continue;
+		if (Config::bVisCheck && !isVisible(localPlayer, currEntity)) continue;
+
+		float abspos_x = localPlayer->bodypos.x - currEntity->bodypos.x;
+		float abspos_y = localPlayer->bodypos.y - currEntity->bodypos.y;
+		float abspos_z = localPlayer->bodypos.z - currEntity->bodypos.z;
+
+		float distance = sqrt(abspos_x * abspos_x + abspos_y * abspos_y + abspos_z * abspos_z);
+
+		float azimuth_xy = atan2f(abspos_y, abspos_x);
+		float newYaw = azimuth_xy * (180.0 / std::numbers::pi);
+
+		if (newYaw > 180.0f) newYaw -= 360.0f;
+		if (newYaw < -180.0f) newYaw += 360.0f;
+
+		float azimuth_z = atan2f(-abspos_z, hypot(abspos_x, abspos_y));
+		float newPitch = azimuth_z * (180.0 / std::numbers::pi);
+
+		float yawDiff = newYaw + 90.0f - localPlayer->yaw;
+		if (yawDiff > 180.0f) yawDiff -= 360.0f;
+		if (yawDiff < -180.0f) yawDiff += 360.0f;
+
+		float pitchDiff = newPitch - localPlayer->pitch;
+
+		float fov = sqrt(yawDiff * yawDiff + pitchDiff * pitchDiff);
+
+		if (Config::bFov) {
+			if (fov < closestFov && fov <= fovDegrees) {
+				closestEntity = currEntity;
+				bestSilent = currEntity;
+				closestFov = fov;
+			}
+		}
+		else {
+			if (distance < closestDistance) {
+				closestEntity = currEntity;
+				bestSilent = currEntity;
+				closestDistance = distance;
+			}
+		}
+	}
+
+	if (bestSilent) {
+		closestSilent = bestSilent;
+	}
+	else {
+		closestSilent = nullptr;
+	}
+
+
+
+	if ((Config::bSilent || Config::bMagicBullet) && Config::bSnapLine && *gameState == 0) {
 		if (closestSilent) {
 			Vector3 screenCoords;
 
@@ -275,9 +303,13 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 			}
 			ImGui::Checkbox("Silent Aim", &Config::bSilent);
 			if (Config::bSilent) {
-				ImGui::SliderInt("Hitchance", &Config::hitChance, 0, 100, "%d%%");
-				ImGui::Checkbox("Snap Lines", &Config::bSnapLine);
+				ImGui::SliderInt("Hitchance ##silent", &Config::silentHitChance, 0, 100, "%d%%");
 			}
+			ImGui::Checkbox("Magic Bullet", &Config::bMagicBullet);
+			if (Config::bMagicBullet) {
+				ImGui::SliderInt("Hitchance ##magic", &Config::magicHitChance, 0, 100, "%d%%");
+			}
+			ImGui::Checkbox("Snap Lines", &Config::bSnapLine);
 			ImGui::Checkbox("FOV Radius", &Config::bFov);
 			if (Config::bFov) {
 				ImGui::SliderFloat("Radius", &Config::fovRadius, 25.0f, 500.0f, "%.3f");
@@ -293,6 +325,8 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 			ImGui::Checkbox("Draw Names", &Config::bNames);
 			ImGui::Checkbox("Draw Distance", &Config::bDistance);
 			ImGui::Checkbox("Draw teammates", &Config::bTeammates);
+			ImGui::ColorEdit3("Team Color", Config::selectedTeamColor);
+			ImGui::ColorEdit3("Enemy Color", Config::selectedEnemyColor);
 			ImGui::EndTabItem();
 		}
 
@@ -354,7 +388,9 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 					WritePrivateProfileStringA("Aimbot", "Aimbot", Config::bAimbot ? "1" : "0", selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Aimbot", "Smoothing", std::to_string(Config::aimSmooth).c_str(), selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Aimbot", "SilentAim", Config::bSilent ? "1" : "0", selectedConfigPath.c_str());
-					WritePrivateProfileStringA("Aimbot", "HitChance", std::to_string(Config::hitChance).c_str(), selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "SilentHitChance", std::to_string(Config::silentHitChance).c_str(), selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "MagicBullet", Config::bMagicBullet ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "MagicHitChance", std::to_string(Config::magicHitChance).c_str(), selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Aimbot", "SnapLines", Config::bSnapLine ? "1" : "0", selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Aimbot", "FOV", Config::bFov ? "1" : "0", selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Aimbot", "FOVRadius", std::to_string(Config::fovRadius).c_str(), selectedConfigPath.c_str());
@@ -365,6 +401,8 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 					WritePrivateProfileStringA("ESP", "DrawNames", Config::bNames ? "1" : "0", selectedConfigPath.c_str());
 					WritePrivateProfileStringA("ESP", "DrawDistance", Config::bDistance ? "1" : "0", selectedConfigPath.c_str());
 					WritePrivateProfileStringA("ESP", "DrawTeammates", Config::bTeammates ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("ESP", "TeamColor", (std::to_string(Config::selectedTeamColor[0]) + "," + std::to_string(Config::selectedTeamColor[1]) + "," + std::to_string(Config::selectedTeamColor[2])).c_str(), selectedConfigPath.c_str());
+					WritePrivateProfileStringA("ESP", "EnemyColor", (std::to_string(Config::selectedEnemyColor[0]) + "," + std::to_string(Config::selectedEnemyColor[1]) + "," + std::to_string(Config::selectedEnemyColor[2])).c_str(), selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Misc", "NoRecoil", Config::bKnockback ? "1" : "0", selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Misc", "ThirdPerson", Config::bThirdPerson ? "1" : "0", selectedConfigPath.c_str());
 					WritePrivateProfileStringA("Misc", "BunnyHop", Config::bBunnyHop ? "1" : "0", selectedConfigPath.c_str());
@@ -377,13 +415,33 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 				if (ImGui::Button("Load Config", ImVec2(120, 20))) {
 					char smoothValue[MAX_PATH];
 					char fovValue[MAX_PATH];
+					char selectedTeamColorBuffer[MAX_PATH];
+					char selectedEnemyColorBuffer[MAX_PATH];
+					GetPrivateProfileStringA("ESP", "TeamColor", "0,1.0,0", selectedTeamColorBuffer, MAX_PATH, selectedConfigPath.c_str());
+					GetPrivateProfileStringA("ESP", "Enemycolor", "1.0,0,0", selectedEnemyColorBuffer, MAX_PATH, selectedConfigPath.c_str());
 					GetPrivateProfileStringA("Aimbot", "Smoothing", "0", smoothValue, MAX_PATH, selectedConfigPath.c_str());
 					GetPrivateProfileStringA("Aimbot", "FOVRadius", "0", fovValue, MAX_PATH, selectedConfigPath.c_str());
+
+					std::stringstream stringStreamTeam(selectedTeamColorBuffer);
+					std::stringstream stringStreamEnemy(selectedEnemyColorBuffer);
+					std::vector<float> teamColors;
+					std::vector<float> enemyColors;
+					std::string teamItem;
+					std::string enemyItem;
+
+					while (std::getline(stringStreamTeam, teamItem, ',')) {
+						teamColors.push_back(std::stof(teamItem));
+					}
+					while (std::getline(stringStreamEnemy, enemyItem, ',')) {
+						enemyColors.push_back(std::stof(enemyItem));
+					}
 
 					Config::bAimbot = GetPrivateProfileIntA("Aimbot", "Aimbot", 0, selectedConfigPath.c_str());
 					Config::aimSmooth = std::stof(smoothValue);
 					Config::bSilent = GetPrivateProfileIntA("Aimbot", "SilentAim", 0, selectedConfigPath.c_str());
-					Config::hitChance = GetPrivateProfileIntA("Aimbot", "HitChance", 0, selectedConfigPath.c_str());
+					Config::silentHitChance = GetPrivateProfileIntA("Aimbot", "SilentHitChance", 0, selectedConfigPath.c_str());
+					Config::bMagicBullet = GetPrivateProfileIntA("Aimbot", "MagicBullet", 0, selectedConfigPath.c_str());
+					Config::magicHitChance = GetPrivateProfileIntA("Aimbot", "MagicHitChance", 0, selectedConfigPath.c_str());
 					Config::bSnapLine = GetPrivateProfileIntA("Aimbot", "SnapLines", 0, selectedConfigPath.c_str());
 					Config::bFov = GetPrivateProfileIntA("Aimbot", "FOV", 0, selectedConfigPath.c_str());
 					Config::fovRadius = std::stof(fovValue);
@@ -394,6 +452,8 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 					Config::bNames = GetPrivateProfileIntA("ESP", "DrawNames", 0, selectedConfigPath.c_str());
 					Config::bDistance = GetPrivateProfileIntA("ESP", "DrawDistance", 0, selectedConfigPath.c_str());
 					Config::bTeammates = GetPrivateProfileIntA("ESP", "DrawTeammates", 0, selectedConfigPath.c_str());
+					Config::selectedTeamColor[0] = teamColors[0]; Config::selectedTeamColor[1] = teamColors[1]; Config::selectedTeamColor[2] = teamColors[2];
+					Config::selectedEnemyColor[0] = enemyColors[0]; Config::selectedEnemyColor[1] = enemyColors[1]; Config::selectedEnemyColor[2] = enemyColors[2];
 					Config::bKnockback = GetPrivateProfileIntA("Misc", "NoRecoil", 0, selectedConfigPath.c_str());
 					Config::bThirdPerson = GetPrivateProfileIntA("Misc", "ThirdPerson", 0, selectedConfigPath.c_str());
 					Config::bBunnyHop = GetPrivateProfileIntA("Misc", "BunnyHop", 0, selectedConfigPath.c_str());
@@ -424,6 +484,7 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 						if (newName[0] != '\0') {
 							MoveFileA(selectedConfigPath.c_str(), newNamePath.c_str());
 							ImGui::CloseCurrentPopup();
+							memset(newName, 0, sizeof(newName));
 						}
 					}
 					ImGui::EndPopup();
@@ -443,7 +504,9 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 						WritePrivateProfileStringA("Aimbot", "Aimbot", Config::bAimbot ? "1" : "0", configPath.c_str());
 						WritePrivateProfileStringA("Aimbot", "Smoothing", std::to_string(Config::aimSmooth).c_str(), configPath.c_str());
 						WritePrivateProfileStringA("Aimbot", "SilentAim", Config::bSilent ? "1" : "0", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "HitChance", std::to_string(Config::hitChance).c_str(), configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "SilentHitChance", std::to_string(Config::silentHitChance).c_str(), configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "MagicBullet", Config::bMagicBullet ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "MagicHitChance", std::to_string(Config::magicHitChance).c_str(), configPath.c_str());
 						WritePrivateProfileStringA("Aimbot", "SnapLines", Config::bSnapLine ? "1" : "0", configPath.c_str());
 						WritePrivateProfileStringA("Aimbot", "FOV", Config::bFov ? "1" : "0", configPath.c_str());
 						WritePrivateProfileStringA("Aimbot", "FOVRadius", std::to_string(Config::fovRadius).c_str(), configPath.c_str());
@@ -454,6 +517,8 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 						WritePrivateProfileStringA("ESP", "DrawNames", Config::bNames ? "1" : "0", configPath.c_str());
 						WritePrivateProfileStringA("ESP", "DrawDistance", Config::bDistance ? "1" : "0", configPath.c_str());
 						WritePrivateProfileStringA("ESP", "DrawTeammates", Config::bTeammates ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "TeamColor", (std::to_string(Config::selectedTeamColor[0]) + "," + std::to_string(Config::selectedTeamColor[1]) + "," + std::to_string(Config::selectedTeamColor[2])).c_str(), configPath.c_str());
+						WritePrivateProfileStringA("ESP", "EnemyColor", (std::to_string(Config::selectedEnemyColor[0]) + "," + std::to_string(Config::selectedEnemyColor[1]) + "," + std::to_string(Config::selectedEnemyColor[2])).c_str(), configPath.c_str());
 						WritePrivateProfileStringA("Misc", "NoRecoil", Config::bKnockback ? "1" : "0", configPath.c_str());
 						WritePrivateProfileStringA("Misc", "ThirdPerson", Config::bThirdPerson ? "1" : "0", configPath.c_str());
 						WritePrivateProfileStringA("Misc", "BunnyHop", Config::bBunnyHop ? "1" : "0", configPath.c_str());
@@ -516,7 +581,8 @@ BOOL WINAPI HackThread(HMODULE hModule) {
 	SDL_showCursor = (SDL_ShowCursor)GetProcAddress(GetModuleHandle(L"SDL2.dll"), "SDL_ShowCursor");
 	o_wglSwapBuffers = (hooked_wglSwapBuffers)wglSwapBuffers;
 	o_wglSwapBuffers = (hooked_wglSwapBuffers)mem::TrampHook((BYTE*)o_wglSwapBuffers, (BYTE*)hook_wglSwapBuffers, 15);
-	shootHook = (Shoot)mem::TrampHook((BYTE*)(moduleBase + 0x1DB4C0), (BYTE*)silentFunct, 17);
+	magicBulletHook = (MagicBullet)mem::TrampHook((BYTE*)(moduleBase + 0x1DB4C0), (BYTE*)magicBulletFunct, 17);
+	silentHook = (SilentAim)mem::TrampHook((BYTE*)(moduleBase + 0x1D5310), (BYTE*)silentAimHook, 18);
 	triggerBotHook = (TriggerBot)mem::TrampHook((BYTE*)(moduleBase + 0x1DB2A0), (BYTE*)hkTriggerBot, 15);
 	mem::Hook((BYTE*)(moduleBase + 0x1ECB97), (BYTE*)oneHit, 15);
 	jmpBackOneHit = (moduleBase + 0x1ECB97 + 14);
@@ -535,18 +601,21 @@ BOOL WINAPI HackThread(HMODULE hModule) {
 		Sleep(10);
 	}
 
+	Sleep(100);
+
 	ImGui_ImplOpenGL2_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
 	VirtualFree(o_wglSwapBuffers, 0, MEM_RELEASE);
-	VirtualFree(shootHook, 0, MEM_RELEASE);
+	VirtualFree(magicBulletHook, 0, MEM_RELEASE);
 	VirtualFree(triggerBotHook, 0, MEM_RELEASE);
 
 	mem::Patch((BYTE*)wglSwapBuffers, oSwapBuffersBytes, 15);
-	mem::Patch((BYTE*)(moduleBase + 0x1D5310), oTraceLineBytes, 18);
 	mem::Patch((BYTE*)(moduleBase + 0x1DB2A0), oTriggerBotBytes, 15);
-	mem::Patch((BYTE*)(moduleBase + 0x1DB4C0), oShootBytes, 17);
+	mem::Patch((BYTE*)(moduleBase + 0x1DB4C0), oMagicBulletBytes, 17);
+	mem::Patch((BYTE*)(moduleBase + 0x1ECB97), oOneHitBytes, 15);
+	mem::Patch((BYTE*)(moduleBase + 0x1D5310), oSilentBytes, 18);
 
 	FreeLibraryAndExitThread(hModule, 0);
 }

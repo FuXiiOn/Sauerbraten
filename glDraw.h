@@ -12,9 +12,9 @@ namespace GL {
 	void RestoreGL();
 	void DrawBox(ent* entity, Vector3 screenCoords);
 	void BuildFont(int height);
-	void Print(float x, float y, const GLubyte color[3], const char* format, ...);
+	void Print(float x, float y, const GLfloat color[3], const char* format, ...);
 	float CenterText(float x, float width, float textWidth);
-	void DrawFilledRect(float x, float y, float width, float height, const GLubyte color[3]);
-	void DrawOutline(float x, float y, float width, float height, float lineWidth, const GLubyte color[3]);
+	void DrawFilledRect(float x, float y, float width, float height, const GLfloat color[3]);
+	void DrawOutline(float x, float y, float width, float height, float lineWidth, const GLfloat color[3]);
 	void DrawFOV();
 }

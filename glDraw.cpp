@@ -9,9 +9,7 @@
 
 HWND hwnd = FindWindowA(NULL, "Cube 2: Sauerbraten");
 
-GLubyte red[3] = { 255,0,0 };
-GLubyte green[3] = { 0,255,0 };
-GLubyte white[3] = { 255,255,255 };
+GLfloat white[3] = { 255.0f,255.0f,255.0f};
 
 HDC hdc = 0;
 unsigned int base = 0;
@@ -26,8 +24,8 @@ void GL::BuildFont(int height) {
 	DeleteObject(hFont);
 }
 
-void GL::Print(float x, float y, const GLubyte color[3], const char* format, ...) {
-	glColor3ub(color[0], color[1], color[2]);
+void GL::Print(float x, float y, const GLfloat color[3], const char* format, ...) {
+	glColor3f(color[0], color[1], color[2]);
 	glRasterPos2f(x, y);
 
 	char text[100];
@@ -46,9 +44,9 @@ float GL::CenterText(float x, float width, float textWidth) {
 	return x + (width - textWidth) / 2;
 }
 
-void GL::DrawFilledRect(float x, float y, float width, float height, const GLubyte color[3]) {
+void GL::DrawFilledRect(float x, float y, float width, float height, const GLfloat color[3]) {
 	glBegin(GL_QUADS);
-	glColor3ub(color[0], color[1], color[2]);
+	glColor3f(color[0], color[1], color[2]);
 	glVertex2f(x, y);
 	glVertex2f(x + width, y);
 	glVertex2f(x + width, y + height);
@@ -59,7 +57,7 @@ void GL::DrawFilledRect(float x, float y, float width, float height, const GLuby
 void GL::DrawBox(ent* entity, Vector3 screenCoords) {
 	uintptr_t moduleBase = (uintptr_t)GetModuleHandle(NULL);
 	ent* localPlayer = *(ent**)(moduleBase + 0x2A5730);
-	const GLubyte* color = (*entity->team == *localPlayer->team) ? green : red;
+	const GLfloat* color = (*entity->team == *localPlayer->team) ? Config::selectedTeamColor : Config::selectedEnemyColor;
 	
 	RECT rect;
 	GetClientRect(hwnd, &rect);
@@ -81,7 +79,7 @@ void GL::DrawBox(ent* entity, Vector3 screenCoords) {
 	if (Config::bHealthBar) {
 		float healthBar = height * (entity->health / 100.0f);
 
-		GL::DrawFilledRect(x - 6, y + (height - healthBar - 5), 3.0f, healthBar, green);
+		GL::DrawFilledRect(x - 6, y + (height - healthBar - 5), 3.0f, healthBar, Config::selectedTeamColor);
 	}
 
 	if (Config::bNames) {
@@ -95,10 +93,10 @@ void GL::DrawBox(ent* entity, Vector3 screenCoords) {
 	}
 }
 
-void GL::DrawOutline(float x, float y, float width, float height, float lineWidth, const GLubyte color[3]) {
+void GL::DrawOutline(float x, float y, float width, float height, float lineWidth, const GLfloat color[3]) {
 	glLineWidth(lineWidth);
 	glBegin(GL_LINE_STRIP);
-	glColor3ub(color[0], color[1], color[2]);
+	glColor3f(color[0], color[1], color[2]);
 	glVertex2f(x - 0.5f, y - 0.5f);
 	glVertex2f(x + width + 0.5f, y - 0.5f);
 	glVertex2f(x + width + 0.5f, y + height + 0.5f);

@@ -404,11 +404,29 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 				}
 
 				if (ImGui::Button("Delete Config", ImVec2(120, 20))) {
-					std::string configPathDelete = std::string(localAppdata) + "\\" + selectedConfig;
-					if (DeleteFileA(configPathDelete.c_str())) {
+					if (DeleteFileA(selectedConfigPath.c_str())) {
 						selectedConfig = "";
 						isConfigSelected = false;
 					}
+				}
+
+				if (ImGui::Button("Rename Config", ImVec2(120, 20))) {
+					ImGui::OpenPopup("Rename Config");
+					ImGui::SetNextWindowSize(ImVec2(150, 80));
+				}
+
+				if (ImGui::BeginPopupModal("Rename Config", 0, ImGuiWindowFlags_NoResize)) {
+					static char newName[256];
+					std::string newNamePath = std::string(localAppdata) + "\\" + newName + ".ini";
+					ImGui::InputText("##cfgRename", newName, 256);
+
+					if (ImGui::Button("Rename")) {
+						if (newName[0] != '\0') {
+							MoveFileA(selectedConfigPath.c_str(), newNamePath.c_str());
+							ImGui::CloseCurrentPopup();
+						}
+					}
+					ImGui::EndPopup();
 				}
 			}
 

@@ -422,27 +422,27 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 						WritePrivateProfileSectionA("Aimbot", "", configPath.c_str());
 						WritePrivateProfileSectionA("ESP", "", configPath.c_str());
 						WritePrivateProfileSectionA("Misc", "", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "Aimbot", "0", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "Smoothing", "0", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "SilentAim", "0", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "HitChance", "100", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "SnapLines", "0", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "FOV", "0", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "FOVRadius", "25.0", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "VisibleCheck", "0", configPath.c_str());
-						WritePrivateProfileStringA("Aimbot", "TriggerBot", "0", configPath.c_str());
-						WritePrivateProfileStringA("ESP", "ESP", "0", configPath.c_str());
-						WritePrivateProfileStringA("ESP", "DrawHealthBar", "0", configPath.c_str());
-						WritePrivateProfileStringA("ESP", "DrawNames", "0", configPath.c_str());
-						WritePrivateProfileStringA("ESP", "DrawDistance", "0", configPath.c_str());
-						WritePrivateProfileStringA("ESP", "DrawTeammates", "0", configPath.c_str());
-						WritePrivateProfileStringA("Misc", "NoRecoil", "0", configPath.c_str());
-						WritePrivateProfileStringA("Misc", "ThirdPerson", "0", configPath.c_str());
-						WritePrivateProfileStringA("Misc", "BunnyHop", "0", configPath.c_str());
-						WritePrivateProfileStringA("Misc", "Godmode", "0", configPath.c_str());
-						WritePrivateProfileStringA("Misc", "InfiniteAmmo", "0", configPath.c_str());
-						WritePrivateProfileStringA("Misc", "RapidFire", "0", configPath.c_str());
-						WritePrivateProfileStringA("Misc", "OneHit", "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "Aimbot", Config::bAimbot ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "Smoothing", std::to_string(Config::aimSmooth).c_str(), configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "SilentAim", Config::bSilent ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "HitChance", std::to_string(Config::hitChance).c_str(), configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "SnapLines", Config::bSnapLine ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "FOV", Config::bFov ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "FOVRadius", std::to_string(Config::fovRadius).c_str(), configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "VisibleCheck", Config::bVisCheck ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "TriggerBot", Config::bTriggerbot ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "ESP", Config::bEsp ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "DrawHealthBar", Config::bHealthBar ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "DrawNames", Config::bNames ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "DrawDistance", Config::bDistance ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "DrawTeammates", Config::bTeammates ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "NoRecoil", Config::bKnockback ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "ThirdPerson", Config::bThirdPerson ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "BunnyHop", Config::bBunnyHop ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "Godmode", Config::bGodmode ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "InfiniteAmmo", Config::bInfAmmo ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "RapidFire", Config::bRapidFire ? "1" : "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "OneHit", Config::bOnehit ? "1" : "0", configPath.c_str());
 						CloseHandle(hFile);
 					}
 				}
@@ -484,9 +484,6 @@ LRESULT __stdcall WndProc(const HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 BOOL WINAPI HackThread(HMODULE hModule) {
-	AllocConsole();
-	FILE* file;
-	freopen_s(&file, "CONOUT$", "w", stdout);
 	uintptr_t moduleBase = (uintptr_t)GetModuleHandle(L"sauerbraten.exe");
 	uintptr_t wglSwapBuffers = (uintptr_t)GetProcAddress(GetModuleHandle(L"opengl32.dll"), "wglSwapBuffers");
 
@@ -533,8 +530,6 @@ BOOL WINAPI HackThread(HMODULE hModule) {
 	mem::Patch((BYTE*)(moduleBase + 0x1DB2A0), oTriggerBotBytes, 15);
 	mem::Patch((BYTE*)(moduleBase + 0x1DB4C0), oShootBytes, 17);
 
-	FreeConsole();
-	fclose(file);
 	FreeLibraryAndExitThread(hModule, 0);
 }
 

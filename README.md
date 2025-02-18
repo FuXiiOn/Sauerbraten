@@ -23,3 +23,8 @@ Internal cheat for Cube 2: Sauerbraten with Imgui menu and hooked SwapBuffers
    - Inf ammo (localhost only)
    - Rapid fire (localhost only)
    - One hit (localhost only)
+4. Config system:
+   - Save Config
+   - Load config
+   - Create Config
+   - Delete Config

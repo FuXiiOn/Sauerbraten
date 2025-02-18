@@ -5,6 +5,7 @@ Internal cheat for Cube 2: Sauerbraten with Imgui menu and hooked SwapBuffers
 1. Aimbot:
    - Smoothing
    - Silent aim
+   - Magic Bullet
    - Hitchance
    - Draw Snap Lines
    - FOV Radius
@@ -15,6 +16,7 @@ Internal cheat for Cube 2: Sauerbraten with Imgui menu and hooked SwapBuffers
    - Draw Names
    - Draw Distance
    - Draw Teammates
+   - Edit colors for Enemies and Teammates
 3. Misc:
    - No recoil
    - Thirdperson (Online bypass)

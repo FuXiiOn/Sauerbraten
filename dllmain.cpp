@@ -9,6 +9,7 @@
 #include "glDraw.h"
 #include "numbers"
 #include <intrin.h>
+#include "string"
 
 typedef BOOL(__stdcall* hooked_wglSwapBuffers)(HDC hdc);
 hooked_wglSwapBuffers o_wglSwapBuffers;
@@ -39,6 +40,8 @@ extern void executeFeatures();
 extern "C" void oneHit();
 extern "C" uintptr_t jmpBackOneHit = 0;
 extern "C" bool bOnehit = false;
+
+char fileName[MAX_PATH];
 
 static void HelpMarker(const char* desc)
 {
@@ -242,7 +245,7 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 		const float EYE_HEIGHT = 10.5f;
 
 		for (int i = 0; i < *currPlayers; i++) {
-			ent* entity = *reinterpret_cast<ent**>(entList + i *8);
+			ent* entity = *reinterpret_cast<ent**>(entList + i * 8);
 
 			if (entity == localPlayer) continue;
 			if (entity->health < 0 || entity->health > 100) continue;
@@ -257,13 +260,14 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 		}
 	}
 
-	ImGui::SetNextWindowSize(ImVec2(400, 250));
+	ImGui::SetNextWindowSize(ImVec2(500, 350));
 
 	if (Config::showMenu) {
 		SDL_setCursor(0);
 		SDL_showCursor(1);
 		ImGui::Begin("Sauerbraten - ExploitCore", &Config::showMenu, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
 		ImGui::BeginTabBar("cheat");
+
 		if (ImGui::BeginTabItem("Aimbot")) {
 			ImGui::Checkbox("Aimbot", &Config::bAimbot);
 			if (Config::bAimbot) {
@@ -282,16 +286,16 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 			ImGui::Checkbox("Triggerbot", &Config::bTriggerbot);
 			ImGui::EndTabItem();
 		}
+
 		if (ImGui::BeginTabItem("ESP")) {
 			ImGui::Checkbox("ESP", &Config::bEsp);
-			if (Config::bEsp) {
-				ImGui::Checkbox("Draw HealthBar", &Config::bHealthBar);
-				ImGui::Checkbox("Draw Names", &Config::bNames);
-				ImGui::Checkbox("Draw Distance", &Config::bDistance);
-				ImGui::Checkbox("Draw teammates", &Config::bTeammates);
-			}
+			ImGui::Checkbox("Draw HealthBar", &Config::bHealthBar);
+			ImGui::Checkbox("Draw Names", &Config::bNames);
+			ImGui::Checkbox("Draw Distance", &Config::bDistance);
+			ImGui::Checkbox("Draw teammates", &Config::bTeammates);
 			ImGui::EndTabItem();
 		}
+
 		if (ImGui::BeginTabItem("Misc")) {
 			ImGui::Checkbox("No recoil", &Config::bKnockback);
 			ImGui::Checkbox("Thirdperson", &Config::bThirdPerson);
@@ -306,6 +310,142 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 			ImGui::SameLine(); HelpMarker("WORKS ONLY ON SELF-HOSTED SERVERS");
 			ImGui::EndTabItem();
 		}
+
+		if (ImGui::BeginTabItem("Config")) {
+			static char fileName[MAX_PATH] = "";
+			static std::string selectedConfig = "";
+			static char localAppdata[MAX_PATH];
+
+			ExpandEnvironmentStringsA("%localappdata%", localAppdata, MAX_PATH);
+
+			std::string configPath = std::string(localAppdata) + "\\" + fileName + ".ini";
+
+			std::string searchPattern = std::string(localAppdata) + "\\*.ini";
+			WIN32_FIND_DATAA findFileData;
+			HANDLE hFind = FindFirstFileA(searchPattern.c_str(), &findFileData);
+
+			std::vector<std::string> configFiles;
+
+			if (hFind != INVALID_HANDLE_VALUE) {
+				do {
+					configFiles.push_back(findFileData.cFileName);
+				} while (FindNextFileA(hFind, &findFileData) != 0);
+				FindClose(hFind);
+			}
+
+			ImGui::Text("Save/Load configs");
+
+			static bool isConfigSelected = false;
+
+			if (ImGui::BeginListBox("##configs", ImVec2(300, 5 * ImGui::GetTextLineHeightWithSpacing()))) {
+				for (const std::string& file : configFiles) {
+					if (ImGui::Selectable(file.substr(0, file.find(".ini")).c_str(), selectedConfig == file)) {
+						selectedConfig = file;
+						isConfigSelected = true;
+					}
+				}
+				ImGui::EndListBox();
+			}
+
+			if (isConfigSelected) {
+				std::string selectedConfigPath = std::string(localAppdata) + "\\" + selectedConfig;
+
+				if (ImGui::Button("Save Config", ImVec2(120, 20))) {
+					WritePrivateProfileStringA("Aimbot", "Aimbot", Config::bAimbot ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "Smoothing", Config::aimSmooth ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "SilentAim", Config::bSilent ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "HitChance", std::to_string(Config::hitChance).c_str(), selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "SnapLines", Config::bSnapLine ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "FOV", Config::bFov ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "FOVRadius", std::to_string(Config::fovRadius).c_str(), selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "VisibleCheck", Config::bVisCheck ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Aimbot", "TriggerBot", Config::bTriggerbot ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("ESP", "ESP", Config::bEsp ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("ESP", "DrawHealthBar", Config::bHealthBar ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("ESP", "DrawNames", Config::bNames ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("ESP", "DrawDistance", Config::bDistance ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("ESP", "DrawTeammates", Config::bTeammates ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Misc", "NoRecoil", Config::bKnockback ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Misc", "ThirdPerson", Config::bThirdPerson ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Misc", "BunnyHop", Config::bBunnyHop ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Misc", "Godmode", Config::bGodmode ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Misc", "InfiniteAmmo", Config::bInfAmmo ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Misc", "RapidFire", Config::bRapidFire ? "1" : "0", selectedConfigPath.c_str());
+					WritePrivateProfileStringA("Misc", "OneHit", Config::bOnehit ? "1" : "0", selectedConfigPath.c_str());
+				}
+
+				if (ImGui::Button("Load Config", ImVec2(120, 20))) {
+					Config::bAimbot = GetPrivateProfileIntA("Aimbot", "Aimbot", 0, selectedConfigPath.c_str());
+					Config::aimSmooth = static_cast<float>(GetPrivateProfileIntA("Aimbot", "Smoothing", 0, selectedConfigPath.c_str()));
+					Config::bSilent = GetPrivateProfileIntA("Aimbot", "SilentAim", 0, selectedConfigPath.c_str());
+					Config::hitChance = GetPrivateProfileIntA("Aimbot", "HitChance", 0, selectedConfigPath.c_str());
+					Config::bSnapLine = GetPrivateProfileIntA("Aimbot", "SnapLines", 0, selectedConfigPath.c_str());
+					Config::bFov = GetPrivateProfileIntA("Aimbot", "FOV", 0, selectedConfigPath.c_str());
+					Config::fovRadius = static_cast<float>(GetPrivateProfileIntA("Aimbot", "FOVRadius", 0, selectedConfigPath.c_str()));
+					Config::bVisCheck = GetPrivateProfileIntA("Aimbot", "VisibleCheck", 0, selectedConfigPath.c_str());
+					Config::bTriggerbot = GetPrivateProfileIntA("Aimbot", "TriggerBot", 0, selectedConfigPath.c_str());
+					Config::bEsp = GetPrivateProfileIntA("ESP", "ESP", 0, selectedConfigPath.c_str());
+					Config::bHealthBar = GetPrivateProfileIntA("ESP", "DrawHealthBar", 0, selectedConfigPath.c_str());
+					Config::bNames = GetPrivateProfileIntA("ESP", "DrawNames", 0, selectedConfigPath.c_str());
+					Config::bDistance = GetPrivateProfileIntA("ESP", "DrawDistance", 0, selectedConfigPath.c_str());
+					Config::bTeammates = GetPrivateProfileIntA("ESP", "DrawTeammates", 0, selectedConfigPath.c_str());
+					Config::bKnockback = GetPrivateProfileIntA("Misc", "NoRecoil", 0, selectedConfigPath.c_str());
+					Config::bThirdPerson = GetPrivateProfileIntA("Misc", "ThirdPerson", 0, selectedConfigPath.c_str());
+					Config::bBunnyHop = GetPrivateProfileIntA("Misc", "BunnyHop", 0, selectedConfigPath.c_str());
+					Config::bGodmode = GetPrivateProfileIntA("Misc", "Godmode", 0, selectedConfigPath.c_str());
+					Config::bInfAmmo = GetPrivateProfileIntA("Misc", "InfiniteAmmo", 0, selectedConfigPath.c_str());
+					Config::bOnehit = GetPrivateProfileIntA("Misc", "Onehit", 0, selectedConfigPath.c_str());
+					Config::bRapidFire = GetPrivateProfileIntA("Misc", "RapidFire", 0, selectedConfigPath.c_str());
+				}
+
+				if (ImGui::Button("Delete Config", ImVec2(120, 20))) {
+					std::string configPath = std::string(localAppdata) + "\\" + selectedConfig;
+					if (DeleteFileA(configPath.c_str())) {
+						selectedConfig = "";
+						isConfigSelected = false;
+					}
+				}
+			}
+
+			ImGui::InputText("Config name", fileName, MAX_PATH);
+
+			if (ImGui::Button("Create Config", ImVec2(120, 20)) && fileName[0] != '\0') {
+
+				if (GetFileAttributesA(configPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+					HANDLE hFile = CreateFileA(configPath.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+					if (hFile != INVALID_HANDLE_VALUE) {
+						WritePrivateProfileSectionA("Aimbot", "", configPath.c_str());
+						WritePrivateProfileSectionA("ESP", "", configPath.c_str());
+						WritePrivateProfileSectionA("Misc", "", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "Aimbot", "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "Smoothing", "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "SilentAim", "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "HitChance", "100", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "SnapLines", "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "FOV", "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "FOVRadius", "25.0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "VisibleCheck", "0", configPath.c_str());
+						WritePrivateProfileStringA("Aimbot", "TriggerBot", "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "ESP", "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "DrawHealthBar", "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "DrawNames", "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "DrawDistance", "0", configPath.c_str());
+						WritePrivateProfileStringA("ESP", "DrawTeammates", "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "NoRecoil", "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "ThirdPerson", "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "BunnyHop", "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "Godmode", "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "InfiniteAmmo", "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "RapidFire", "0", configPath.c_str());
+						WritePrivateProfileStringA("Misc", "OneHit", "0", configPath.c_str());
+						CloseHandle(hFile);
+					}
+				}
+			}
+
+			ImGui::EndTabItem();
+		}
+
 		ImGui::EndTabBar();
 		ImGui::End();
 	}
@@ -320,11 +460,8 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 	ImGui::EndFrame();
 	ImGui::Render();
 	ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-
 	wglMakeCurrent(hdc, g_gameContext);
-
 	GL::RestoreGL();
-
 	return o_wglSwapBuffers(hdc);
 }
 

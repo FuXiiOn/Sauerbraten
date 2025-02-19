@@ -293,7 +293,7 @@ BOOL __stdcall hook_wglSwapBuffers(HDC hdc) {
 	if (Config::showMenu) {
 		SDL_setCursor(0);
 		SDL_showCursor(1);
-		ImGui::Begin("Sauerbraten - ExploitCore", &Config::showMenu, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+		ImGui::Begin("Sauerbraten - Venom", &Config::showMenu, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
 		ImGui::BeginTabBar("cheat");
 
 		if (ImGui::BeginTabItem("Aimbot")) {

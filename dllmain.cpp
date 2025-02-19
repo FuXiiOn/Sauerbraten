@@ -572,7 +572,6 @@ BOOL WINAPI HackThread(HMODULE hModule) {
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
 
 	ImGui_ImplWin32_Init(gameHWND);
 	ImGui_ImplOpenGL2_Init();
